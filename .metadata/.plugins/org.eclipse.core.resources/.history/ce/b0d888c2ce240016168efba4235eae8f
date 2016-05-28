@@ -1,0 +1,14 @@
+package mju.cn.client.gui.dialog;
+
+public enum SelectLevel { 
+	
+	low("ÇÏ",1),middle("Áß",2),high("»ó",3);
+	
+	String name;
+	int value;
+	SelectLevel(String name,int value){
+		this.name = name;
+		this.value = value;
+	}
+	
+}

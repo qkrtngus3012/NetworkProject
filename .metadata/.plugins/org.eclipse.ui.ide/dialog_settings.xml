@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<section name="Workbench">
+	<section name="ExternalProjectImportWizard">
+		<item value="false" key="WizardProjectsImportPage.STORE_NESTED_PROJECTS"/>
+		<item value="false" key="WizardProjectsImportPage.STORE_COPY_PROJECT_ID"/>
+		<item value="false" key="WizardProjectsImportPage.STORE_ARCHIVE_SELECTED"/>
+		<list key="WizardProjectsImportPage.STORE_DIRECTORIES">
+			<item value="C:\Users\suhyun123\Desktop\Rain_동시화면_v05\version1"/>
+			<item value="C:\Users\suhyun123\Desktop\Rain_죽음표시,화면초기화\version1"/>
+			<item value="C:\Users\suhyun123\Desktop\rain3_게임완성\version1"/>
+			<item value="C:\Users\suhyun123\Desktop\raingame\rain3\version1"/>
+			<item value="C:\Users\suhyun123\Desktop\rain00"/>
+			<item value="C:\Users\suhyun123\Desktop\rain\rain3\version1"/>
+			<item value="C:\Users\suhyun123\Desktop\rain"/>
+			<item value="C:\Users\suhyun123\Desktop\초기버젼"/>
+		</list>
+		<list key="WizardProjectsImportPage.STORE_ARCHIVES">
+			<item value=""/>
+		</list>
+	</section>
+</section>

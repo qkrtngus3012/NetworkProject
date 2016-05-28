@@ -1,0 +1,13 @@
+package mju.cn.client.gui.dialog;
+
+public enum SelectLevel { 
+	
+	low,midde,high;
+	
+	String name;
+	int value;
+	public SelectLevel(String name,int value){
+		
+	}
+	
+}

@@ -1,0 +1,5 @@
+package mju.cn.client.gui.dialog;
+
+public enum SelectLevel {
+
+}

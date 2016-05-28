@@ -1,0 +1,347 @@
+﻿package mju.cn.server.room;
+
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.util.HashMap;
+import java.util.Vector;
+
+import javax.swing.Timer;
+
+import mju.cn.common.Word;
+import mju.cn.server.controller.SSGameController;
+import mju.cn.server.network.SSSocketManager;
+import mju.cn.server.player.SSPlayer;
+
+// 출처 명지대학교 컴퓨터공학과 김유현
+// 수정 60062446 박정실
+public class SSRoom extends Thread{
+	// Attributes
+	private int m_roomNum; // 방 번호
+	private int m_playTime; // 플레이 시간
+	private int m_maxPlayer; //최대인원
+	private int m_level;
+	
+	private HashMap<String, Integer> m_playersHP;	//채력
+	private HashMap<String, Integer> m_playersScore; //점수
+	private int m_threadTime;						//쓰래드 쉬는 시간
+	private int m_timerTime;
+	private int m_surviveCnt;
+	private Vector<Word> m_viewingWords;
+	private boolean m_stopped;
+	
+	// Components
+	private Vector<SSPlayer> m_players; //플레이어 목록	
+	private boolean m_waiting; //방 상태
+	private String m_roomSubject; //방제목
+	private SSLobby m_parent; // 부모 객체
+	private SSGameController m_gameController; //게임컨트롤러
+	private Thread m_thread; // 게임 쓰래드
+	private ActionListener actionListener;
+	private Timer m_timer;
+	
+	
+
+	
+	// Constructor
+	public SSRoom(int roomNum, int maxPlayer, String subject, SSLobby lobby, String level){
+		m_roomNum = roomNum;
+		m_maxPlayer = maxPlayer;
+		m_players = new Vector<SSPlayer>();
+		m_roomSubject = subject;
+		m_parent = lobby;
+		m_waiting = true;
+		if(level.equals("상")) {
+			m_level = 3;
+		}
+		else if(level.equals("중")) {
+			m_level = 2;
+		}
+		else {
+			m_level = 1;
+		}
+		
+		m_playersHP = new HashMap<String, Integer>();
+		m_surviveCnt = 0;
+		m_threadTime = 1000;
+		m_timerTime = 0;
+		m_stopped = false;
+		actionListener = new ActionListener() {
+	        public void actionPerformed(ActionEvent e) {
+	        	boolean isEnd = checkTime();
+	        	if(isEnd) {
+	        		finishGame();
+					try {
+						m_thread.sleep(5000); 
+					}catch(InterruptedException ie) {}
+					resultGame();
+	        	}
+	        }
+		};
+		m_gameController = new SSGameController();
+	}	
+	
+	// Initialization
+	// 모든 플레이어의 게임정보를 초기화 한다.
+	public void initGame(){
+		m_waiting = false;									//방상태 게임중
+		m_playersHP = new HashMap<String, Integer>();		//매 새로시작마다 초기화
+		m_playersScore = new HashMap<String, Integer>();
+		for (SSPlayer player : getPlayerList()) {
+			m_playersHP.put(player.getId(), 3);			//채력표만들기
+			m_playersScore.put(player.getId(), 0);			//점수표만들기
+		}
+		m_surviveCnt = getPlayerList().size();				//살아있는 수 만들기
+		for (int index = 0; index < m_players.size(); index++) {	//사람초기화
+			SSPlayer player = m_players.get(index);
+			player.initInfo();
+		}
+		m_viewingWords = new Vector<Word>();
+		m_thread = new Thread(this);					//게임쓰래드 생성
+		m_stopped = false;
+		m_timer = new Timer(1000, actionListener);
+		m_thread.start();									//게임시작
+		m_timer.start();
+	}
+	
+	/* get Player의 HP*/
+	public int getPlayerHP(String id){
+		return m_playersHP.get(id);
+	}
+	
+	public int getPlayerScore(String id){
+		return m_playersScore.get(id);
+	}
+	
+
+	
+	
+	// 게임종료 함수
+	// 방을 대기룸 상태로 놓는다.
+	public void endGame (){
+		m_waiting = true;
+	}
+	
+	
+//	// 플레이어 경험치 저장함수
+//	public void updateExp(){
+//		for(SSPlayer player : m_player){
+//			player.updateExp();
+//		}
+//	}
+	
+	// 입장 함수
+	// 최대 인원수 내에 입장이 가능하다.
+	public boolean enterRoom(SSPlayer player) {
+		if (m_players.size()>=m_maxPlayer) {
+			return false;
+		}else{
+			m_players.add(player);
+			m_parent.getWaitPlayerList().remove(player);	
+			return true;
+		}		
+	}
+	
+	// 퇴장함수
+	// 방에서 플레이어를  삭제하고 대기방에 입력한다.
+	// 마지막 플레이어가 나가면 방을 삭제한다.
+	public boolean exitRoom(SSPlayer player){
+		m_players.remove(player);
+		m_parent.getWaitPlayerList().add(player);
+		
+		if(m_players.size() == 0){
+			SSLobby lobby = SSLobby.getLobby();
+			lobby.deleteRoom(this);
+			return false;
+		}
+		return true;
+	}
+	
+	//채력깍는 함수
+	public void minusHP(){			
+		for(SSPlayer player : m_players) {
+			int hp = m_playersHP.get(player.getId());
+			hp--;
+			if(hp == 0) {
+				m_surviveCnt--;
+			}
+			m_playersHP.put(player.getId(), hp);
+		}
+		m_gameController.minusHP(m_roomNum);
+	}
+	
+	public void finishGame() {
+		m_timer.stop();
+		m_gameController.finishGame(m_roomNum);
+	}
+	
+	public void resultGame() {
+		m_gameController.resultGame(m_roomNum);
+		m_stopped = true;
+		m_waiting = true;
+	}
+	
+	public boolean checkTime() {
+		m_timerTime++;
+		if(m_timerTime%20 == 0) {
+			m_threadTime-=50;
+		}
+		
+		if(m_timerTime >= 300) {
+			return true;
+		}
+		else {
+			return false;
+		}
+	}
+	
+	public void run() {
+		try {
+			m_thread.sleep(3000); 			//3초쉰다 게임시작알림중
+		} catch (InterruptedException e) {}
+		m_gameController.startGame(this);
+		int i = 0;
+		SSLobby lobby = SSLobby.getLobby();
+		
+		while(!m_stopped) {
+			try {
+				m_thread.sleep(m_threadTime); 
+			}catch(InterruptedException e) {}
+			 
+			for(Word w : m_viewingWords) {
+				w.addY();
+			}
+         
+			if(!m_viewingWords.isEmpty()) {
+				if(m_viewingWords.get(0).getY() > 510) {      	  
+					m_viewingWords.remove(0);
+            		//전채채력 감소
+					minusHP();
+				}            
+			}
+			
+			for(int level=0; level<m_level; level++) {		//레벨에 따라 한회에 생성하는 단어수 조절
+				i++;
+				m_viewingWords.add(new Word("test" + i));
+			}
+			
+			
+			m_gameController.sendGameData(getRoomNum());
+			
+			if(m_surviveCnt <= 1) {
+				finishGame();
+				try {
+					m_thread.sleep(5000); 
+				}catch(InterruptedException e) {}
+				resultGame();
+			}
+		}
+	}
+	
+	public boolean scoringWord(String userId, String inputText) {
+		for(Word word : m_viewingWords) {
+			if(word.getString().equals(inputText)) {
+				m_viewingWords.remove(word);
+				int score = m_playersScore.get(userId);
+				score+=10;
+				m_playersScore.put(userId, score);
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	// Getters and Setters
+	public Vector<SSPlayer> getPlayerList() {
+		return m_players;
+	}
+
+	public SSPlayer getGameHost() {
+		return m_players.get(0);
+	}
+	public boolean isStart() {
+		return !m_waiting;
+	}
+
+	public int getMaxPlayer() {
+		return m_maxPlayer;
+	}
+
+	public void setMaxPlayer(int m_maxPlayer) {
+		this.m_maxPlayer = m_maxPlayer;
+	}
+
+	public boolean isWaiting() {
+		return m_waiting;
+	}
+
+	public void setWaiting(boolean m_waiting) {
+		this.m_waiting = m_waiting;
+	}
+
+	public String getRoomSubject() {
+		return m_roomSubject;
+	}
+
+	public void setRoomSubject(String m_roomSubject) {
+		this.m_roomSubject = m_roomSubject;
+	}
+
+	public int getRoomNum() {
+		return m_roomNum;
+	}
+
+	public int getPlayTime() {
+		return m_playTime;
+	}
+
+	public void setPlayTime(int playTime) {
+		this.m_playTime = playTime;
+	}
+	
+	public int getSurviveCnt() {
+		return m_surviveCnt;
+	}
+
+	public void setSurviveCnt(int surviveCnt) {
+		this.m_surviveCnt = surviveCnt;
+	}
+
+	public int getThreadTime() {
+		return m_threadTime;
+	}
+
+	public void setThreadTime(int m_threadTime) {
+		this.m_threadTime = m_threadTime;
+	}
+	
+	public Vector<Word> getViewingWord() {
+		return m_viewingWords;
+	}
+	
+	public void setViewingWord(Vector<Word> viewingWord) {
+		this.m_viewingWords = viewingWord;
+	}
+	
+	public HashMap<String, Integer> getPlayersHP() {
+		return m_playersHP;
+	}
+	
+	public HashMap<String, Integer> getPlayersScore() {
+		return m_playersScore;
+	}
+	
+	public void setViewingWord(HashMap<String, Integer> playersHP) {
+		this.m_playersHP = playersHP;
+	}
+
+}
